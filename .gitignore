@@ -1,0 +1,14 @@
+.idea/
+CMakeFiles/
+*~
+Makefile
+bin/
+lib/
+cmake_install.cmake
+CMakeCache.txt
+build/
+devel/
+
+.catkin_workspace
+*.swp
+camera_image_*
