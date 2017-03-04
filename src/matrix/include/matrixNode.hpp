@@ -15,6 +15,8 @@
 #include <communication/MicroPhoneData.h>
 #include <communication/CameraControl.h>
 #include <communication/LEDControl.h>
+#include <communication/LEDPattern.h>
+#include <communication/Record.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
@@ -25,6 +27,7 @@
 #include <everloop_image.h>
 #include <everloop.h>
 #include <wishbone_bus.h>
+#include <microphone_array.h>
 
 #define WIDTH 640
 #define HEIGHT 480
@@ -43,12 +46,13 @@ class MatrixNode{
 public:
 	MatrixNode();
     ~MatrixNode();
-
+    void run();
 private:
     void camera_control(const communication::CameraControl::ConstPtr& msg);
     void microphone_control(const communication::MicroPhoneControl::ConstPtr& msg);
     void led_control(const communication::LEDControl::ConstPtr& msg);
-    void led_lets_do_this();
+    void led_pattern(const communication::LEDPattern::ConstPtr& msg);
+    bool record(communication::Record::Request  &req, communication::Record::Response &res);
     static void CameraCallback(CCamera* cam, const void* buffer, int buffer_length);
     static int threshold_value;
     static std::chrono::high_resolution_clock::time_point t1;
@@ -60,17 +64,20 @@ private:
     Mat myuv;
     ros::NodeHandle nh;
     static ros::Publisher *video_pub, *cameraID_pub;
-    ros::Subscriber camera_control_sub, mic_control_sub, led_control_sub;
+    ros::ServiceServer record_srv;
+    ros::Subscriber camera_control_sub, mic_control_sub, led_control_sub, led_pattern_sub;
     ros::AsyncSpinner *spinner;
     static Mat img, img_rectified, img_gray;
     static unsigned char *img_data, *img_rectified_data, *img_gray_data;
     static bool publish_video_flag;
     vector<COLOR> leds;
+    bool recordMic[8];
     thread *led_thread;
     bool online = true;
 
     hal::WishboneBus bus;
     hal::Everloop everloop;
     hal::EverloopImage image1d;
+    hal::MicrophoneArray mics;
     mutex m_lockMutex;
 };

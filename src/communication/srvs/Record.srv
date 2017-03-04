@@ -1,0 +1,5 @@
+int32 seconds_to_record
+int32[] mics
+---
+int32 samples
+int16[] recording_raw

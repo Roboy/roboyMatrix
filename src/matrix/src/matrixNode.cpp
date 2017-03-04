@@ -42,7 +42,11 @@ MatrixNode::MatrixNode() {
 
     mic_control_sub = nh.subscribe("/roboyMatrix/mic_control", 100, &MatrixNode::microphone_control, this);
 
+    record_srv =  nh.advertiseService("/roboyMatrix/mic_record", &MatrixNode::record, this);
+
     led_control_sub = nh.subscribe("/roboyMatrix/led_control", 100, &MatrixNode::led_control, this);
+
+    led_pattern_sub = nh.subscribe("/roboyMatrix/led_pattern", 100, &MatrixNode::led_pattern, this);
 
     cameraID_pub = new ros::Publisher;
     *cameraID_pub = nh.advertise<std_msgs::Int32>("/roboyMatrix/cameraID", 100);
@@ -63,9 +67,10 @@ MatrixNode::MatrixNode() {
 
     bus.SpiInit();
     everloop.Setup(&bus);
+    mics.Setup(&bus);
+    mics.CalculateDelays(0, 0, 1000, 320 * 1000);
 
     leds.resize(36);
-    led_lets_do_this();
 }
 
 MatrixNode::~MatrixNode() {
@@ -96,33 +101,117 @@ void MatrixNode::camera_control(const communication::CameraControl::ConstPtr& ms
 }
 
 void MatrixNode::microphone_control(const communication::MicroPhoneControl::ConstPtr& msg){
-
+    // TODO
 }
+
+bool MatrixNode::record(communication::Record::Request  &req, communication::Record::Response &res){
+    res.recording_raw.resize((req.mics.size() + 1)*req.seconds_to_record * mics.SamplingRate());
+    uint32_t step = 0;
+    while (true) {
+        mics.Read(); /* Reading 8-mics buffer from de FPGA */   
+        for (uint32_t s = 0; s < mics.NumberOfSamples(); s++) {
+          for (uint16_t i = 0; i < req.mics.size(); i++) { /* mics.Channels()=8 */
+            res.recording_raw[i*req.seconds_to_record*mics.SamplingRate()+s] = mics.At(s, req.mics[i]);
+          }
+          res.recording_raw[req.mics.size()*req.seconds_to_record*mics.SamplingRate()+step] = mics.Beam(s);
+          step++;
+        }
+    if (step == req.seconds_to_record * mics.SamplingRate()) break;
+    }
+    res.samples = step;
+    return true;
+}
+
 
 void MatrixNode::led_control(const communication::LEDControl::ConstPtr& msg){
 	lock_guard<std::mutex> lock(m_lockMutex);
 
 	for(uint i=0;i<msg->ledID.size();i++){
-		leds[msg->ledID[i]].r = 100;//msg->r[i];
-		leds[msg->ledID[i]].g = 200;//msg->g[i];
-		leds[msg->ledID[i]].b = 300;//msg->b[i];
-		leds[msg->ledID[i]].white = 400;//msg->white[i];
+		image1d.leds[msg->ledID[i]].red = msg->r[i];
+		image1d.leds[msg->ledID[i]].green = msg->g[i];
+		image1d.leds[msg->ledID[i]].blue = msg->b[i];
+		image1d.leds[msg->ledID[i]].white = msg->white[i];
 	}
+
+    everloop.Write(&image1d);
 }
 
-void MatrixNode::led_lets_do_this(){
-	ros::Rate rate(100);
-	while(online){
-		uint i=0;
-		for (hal::LedValue& led : image1d.leds) {
-			led.red = (uint8_t)((float)rand()/RAND_MAX*255.0f);
-			led.green = (uint8_t)((float)rand()/RAND_MAX*255.0f);
-			led.blue = (uint8_t)((float)rand()/RAND_MAX*255.0f);
-			led.white = (uint8_t)((float)rand()/RAND_MAX*255.0f);
-			i++;
-		}
+void MatrixNode::led_pattern(const communication::LEDPattern::ConstPtr& msg){
+    lock_guard<std::mutex> lock(m_lockMutex);
+    switch(msg->pattern){
+        case FLASH:{
+            ros::Rate rate(msg->rate);
+            for(uint rep=0; rep<msg->repetitions;rep++){
+                for(uint i=0;i<msg->leds.ledID.size();i++){
+                    image1d.leds[msg->leds.ledID[i]].red = msg->leds.r[i];
+                    image1d.leds[msg->leds.ledID[i]].green = msg->leds.g[i];
+                    image1d.leds[msg->leds.ledID[i]].blue = msg->leds.b[i];
+                    image1d.leds[msg->leds.ledID[i]].white = msg->leds.white[i];
+                }
+                everloop.Write(&image1d);
+                rate.sleep();
+                for(uint i=0;i<msg->leds.ledID.size();i++){
+                    image1d.leds[msg->leds.ledID[i]].red = 0;
+                    image1d.leds[msg->leds.ledID[i]].green = 0;
+                    image1d.leds[msg->leds.ledID[i]].blue = 0;
+                    image1d.leds[msg->leds.ledID[i]].white = 0;
+                }
+                everloop.Write(&image1d);
+                rate.sleep();
+            }
+            break;
+        }
+        case FLASH_ALL:{
+            ros::Rate rate(msg->rate);
+            for(uint rep=0; rep<msg->repetitions;rep++){
+                for(uint i=0;i<image1d.leds.size();i++){
+                    image1d.leds[i].red = msg->leds.r[0];
+                    image1d.leds[i].green = msg->leds.g[0];
+                    image1d.leds[i].blue = msg->leds.b[0];
+                    image1d.leds[i].white = msg->leds.white[0];
+                }
+                everloop.Write(&image1d);
+                rate.sleep();
+                for(uint i=0;i<image1d.leds.size();i++){
+                    image1d.leds[i].red = 0;
+                    image1d.leds[i].green = 0;
+                    image1d.leds[i].blue = 0;
+                    image1d.leds[i].white = 0;
+                }
+                everloop.Write(&image1d);
+                rate.sleep();
+            }
+            break;
+        }
+        case RUN:
 
-		everloop.Write(&image1d);
+            break;
+        case PULSE:
+
+            break;
+        case WAVE:
+
+            break;
+
+    }
+}
+
+void MatrixNode::run(){
+	ros::Rate rate(100);
+	while(ros::ok()){
+		// uint i=0;
+		// for (hal::LedValue& led : image1d.leds) {
+		// 	led.red = leds[i].r;
+		// 	led.green = leds[i].g;
+		// 	led.blue = leds[i].b;
+		// 	led.white = leds[i].white;
+		// 	i++;
+		// }
+
+		// everloop.Write(&image1d);
+
+
+
 		rate.sleep();
 	}
 }

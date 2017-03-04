@@ -5,10 +5,7 @@ int main(int argc, char *argv[]) {
     
 	MatrixNode matrixNode;
 
-    ros::Duration d(1.0);
-    while (ros::ok()){
-        d.sleep();
-    }
+    matrixNode.run();
 
     return 0;
 }

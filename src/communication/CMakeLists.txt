@@ -13,6 +13,14 @@ add_message_files(
         MicroPhoneControl.msg
         CameraControl.msg
         LEDControl.msg
+        LEDPattern.msg
+)
+
+add_service_files(
+		DIRECTORY
+		srvs
+		FILES
+		Record.srv
 )
 
 generate_messages(

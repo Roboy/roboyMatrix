@@ -51,7 +51,7 @@ else ()
     #==============================================================================
     ADD_EXECUTABLE(matrix_node src/matrixNode.cpp src/main.cpp picam/camera.cpp picam/cameracontrol.cpp)
     add_dependencies(matrix_node communication_gencpp)
-    TARGET_LINK_LIBRARIES(matrix_node ${OpenCV_LIBS} ${catkin_LIBRARIES} ${picam_LIBRARIES} ${matrix_LIB} -lpthread)
+    TARGET_LINK_LIBRARIES(matrix_node ${OpenCV_LIBS} ${catkin_LIBRARIES} ${picam_LIBRARIES} ${matrix_LIB} -lpthread -lwiringPi)
 
     #==============================================================================
     # Installation
