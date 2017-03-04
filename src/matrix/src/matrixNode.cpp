@@ -51,7 +51,7 @@ MatrixNode::MatrixNode() {
     cameraID_pub = new ros::Publisher;
     *cameraID_pub = nh.advertise<std_msgs::Int32>("/roboyMatrix/cameraID", 100);
 
-    spinner = new ros::AsyncSpinner(1);
+    spinner = new ros::AsyncSpinner(10);
     spinner->start();
 
     std_msgs::Int32 msg;
@@ -183,12 +183,79 @@ void MatrixNode::led_pattern(const communication::LEDPattern::ConstPtr& msg){
             }
             break;
         }
-        case RUN:
-
+        case RUN:{
+            ros::Rate rate(msg->rate);
+            uint rep=0; 
+            if(!msg->leds.r.size() && !msg->leds.g.size() && !msg->leds.b.size() && !msg->leds.white.size())
+                return;
+            while(rep<msg->repetitions){
+                if(msg->leds.r.size())
+                    image1d.leds[rep%36].red = msg->leds.r[0];
+                if(msg->leds.g.size())
+                    image1d.leds[rep%36].green = msg->leds.g[0];
+                if(msg->leds.b.size())
+                    image1d.leds[rep%36].blue = msg->leds.b[0];
+                if(msg->leds.white.size())
+                    image1d.leds[rep%36].white = msg->leds.white[0];
+                
+                everloop.Write(&image1d);
+                rate.sleep();
+                if(msg->leds.r.size()>1)
+                    image1d.leds[rep%36].red = msg->leds.r[1];
+                else
+                    image1d.leds[rep%36].red = 0;
+                if(msg->leds.g.size()>1)
+                    image1d.leds[rep%36].green = msg->leds.g[1];
+                else
+                    image1d.leds[rep%36].green = 0;
+                if(msg->leds.b.size()>1)
+                    image1d.leds[rep%36].blue = msg->leds.b[1];
+                else
+                    image1d.leds[rep%36].blue = 0;
+                if(msg->leds.white.size()>1)
+                    image1d.leds[rep%36].white = msg->leds.white[1];
+                else
+                    image1d.leds[rep%36].white = 0;
+                everloop.Write(&image1d);
+                rate.sleep();
+                rep++;
+            }
             break;
-        case PULSE:
-
+        }
+        case PULSE:{
+            ros::Rate rate(msg->rate*255);
+            for(uint rep=0; rep<msg->repetitions;rep++){
+                for(uint step=0;step<255;step++){
+                    for(uint i=0;i<image1d.leds.size();i++){
+                        if(msg->leds.r.size())
+                            image1d.leds[i].red = step;
+                        if(msg->leds.g.size())
+                            image1d.leds[i].green = step;
+                        if(msg->leds.b.size())
+                            image1d.leds[i].blue = step;
+                        if(msg->leds.white.size())
+                            image1d.leds[i].white = step;
+                    }
+                    everloop.Write(&image1d);
+                    rate.sleep();
+                }
+                for(int step=254;step>=0;step--){
+                    for(uint i=0;i<image1d.leds.size();i++){
+                       if(msg->leds.r.size())
+                            image1d.leds[i].red = step;
+                        if(msg->leds.g.size())
+                            image1d.leds[i].green = step;
+                        if(msg->leds.b.size())
+                            image1d.leds[i].blue = step;
+                        if(msg->leds.white.size())
+                            image1d.leds[i].white = step;
+                    }
+                    everloop.Write(&image1d);
+                    rate.sleep();
+                }
+            }
             break;
+        }
         case WAVE:
 
             break;
