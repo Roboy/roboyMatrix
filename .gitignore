@@ -12,3 +12,4 @@ devel/
 .catkin_workspace
 *.swp
 camera_image_*
+cmake-build-debug/
